@@ -313,22 +313,24 @@
             // Create survey data
             const surveyData = {
                 ticket_id: document.getElementById('ticketNumber').textContent,
-                name: 'Anonymous', 
+                name: 'Anonymous',
                 satisfaction_rate: satisfactionRating,
                 quality_rate: qualityRating,
                 feedback: feedbackTextarea.value,
             };
+
+            const formData = new FormData();
+            Object.keys(surveyData).forEach(key => {
+                formData.append(key, surveyData[key]);
+            });
+
 
             // Generate unique survey ID
             const surveyId = 'SRV-' + Date.now().toString(36).toUpperCase();
 
             fetch("https://script.google.com/macros/s/AKfycbyG6Lo3uw6d_gOPq3RHyNEuwgui9kU-A6vnjFHQ2cUqcmBSTpfQtjAL7DuY0t_kKRwoqw/exec", {
                 method: "POST",
-                mode: "no-cors",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(surveyData)
+                body: formData
             })
                 .then(response => response.json())
                 .then(data => alert("Data berhasil dikirim!"))
