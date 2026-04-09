@@ -332,16 +332,16 @@
                 method: "POST",
                 body: formData
             })
-                .then(response => response.json())
+                .then(response => {
+                    if (response.ok) {
+                        showSuccess(surveyId);
+                    } else {
+                        throw new Error('Network response was not ok');
+                    }
+                })
                 .then(data => alert("Data berhasil dikirim!"))
                 .catch(error => alert("Gagal mengirim data"));
 
-
-            // Show success message
-            showSuccess(surveyId);
-
-            // Log data (in real app, this would be sent to server)
-            console.log('Survey Data Submitted:', surveyData);
         });
 
         // Show success message
