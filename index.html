@@ -80,10 +80,93 @@
                 transform: scale(1) rotate(45deg);
             }
         }
+
+        /* Loading spinner styles */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Ensure loading overlay is hidden by default and only shown during submission */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 300px;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .loading-overlay.active .loading-content {
+            transform: scale(1);
+        }
+
+        .loading-spinner-large {
+            border: 4px solid rgba(99, 102, 241, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #6366f1;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        /* Disable form interactions during submission */
+        .form-disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .form-disabled .star {
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Loading Overlay - Initially hidden with opacity and visibility -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner-large"></div>
+            <p class="text-gray-700 font-medium">Submitting your feedback...</p>
+            <p class="text-gray-500 text-sm mt-2">Please wait a moment</p>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
@@ -118,7 +201,12 @@
                 <div
                     class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     <i class="fas fa-check-circle mr-2"></i>
-                    Ticket #<span id="ticketNumber">2024-0847</span>
+                    Ticket #<span id="ticketNumber">-</span>
+                </div>
+                <div
+                    class="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    @<span id="name">-</span>
                 </div>
             </div>
 
@@ -178,10 +266,10 @@
 
                 <!-- Submit Button -->
                 <div class="pt-4">
-                    <button type="submit"
+                    <button type="submit" id="submitBtn"
                         class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]">
                         <i class="fas fa-paper-plane mr-2"></i>
-                        Submit Feedback
+                        <span id="submitBtnText">Submit Feedback</span>
                     </button>
                 </div>
             </form>
@@ -217,6 +305,33 @@
         // Initialize ratings
         let satisfactionRating = 0;
         let qualityRating = 0;
+        let name = 'Anonymous';
+        let ticket_id = '-';
+        let isSubmitting = false;
+
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                ticket_id: params.get('ticket_id'),
+                name: params.get('name')
+            };
+        }
+
+        function loadTicketData() {
+            const { ticket_id, name } = getQueryParams();
+
+            if (ticket_id) {
+                document.getElementById('ticketNumber').textContent = ticket_id;
+            }
+
+            if (name) {
+                document.getElementById('name').textContent = name;
+            } else {
+                document.getElementById('name').textContent = 'Anonymous';
+            }
+        }
+
+        loadTicketData()
 
         // Generate star ratings
         function generateStars(containerId, ratingType) {
@@ -234,6 +349,9 @@
 
         // Set rating
         function setRating(type, value) {
+            // Prevent rating changes during submission
+            if (isSubmitting) return;
+            
             if (type === 'satisfaction') {
                 satisfactionRating = value;
                 updateStars('satisfactionRating', value);
@@ -260,6 +378,9 @@
 
         // Hover effect
         function hoverStars(containerId, rating) {
+            // Prevent hover effects during submission
+            if (isSubmitting) return;
+            
             const stars = document.querySelectorAll(`#${containerId} .star`);
             stars.forEach((star, index) => {
                 if (index < rating) {
@@ -292,6 +413,12 @@
         const feedbackTextarea = document.getElementById('feedback');
         const charCount = document.getElementById('charCount');
         feedbackTextarea.addEventListener('input', () => {
+            // Prevent input during submission
+            if (isSubmitting) {
+                feedbackTextarea.value = feedbackTextarea.value; // Reset to prevent new input
+                return;
+            }
+            
             const length = feedbackTextarea.value.length;
             charCount.textContent = `${length} / 500`;
             if (length > 500) {
@@ -300,9 +427,52 @@
             }
         });
 
+        // Show loading state
+        function showLoading() {
+            isSubmitting = true;
+            
+            // Disable form interactions
+            document.getElementById('surveyForm').classList.add('form-disabled');
+            feedbackTextarea.disabled = true;
+            
+            // Show loading overlay with smooth transition
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.add('active');
+            
+            // Update submit button
+            const submitBtn = document.getElementById('submitBtn');
+            const submitBtnText = document.getElementById('submitBtnText');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            submitBtnText.innerHTML = '<span class="spinner"></span>Submitting...';
+        }
+
+        // Hide loading state
+        function hideLoading() {
+            isSubmitting = false;
+            
+            // Hide loading overlay with smooth transition
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.remove('active');
+            
+            // Enable form interactions
+            document.getElementById('surveyForm').classList.remove('form-disabled');
+            feedbackTextarea.disabled = false;
+            
+            // Reset submit button
+            const submitBtn = document.getElementById('submitBtn');
+            const submitBtnText = document.getElementById('submitBtnText');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            submitBtnText.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Submit Feedback';
+        }
+
         // Form submission
         document.getElementById('satisfactionForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            
+            // Prevent multiple submissions
+            if (isSubmitting) return;
 
             // Validation
             if (satisfactionRating === 0 || qualityRating === 0) {
@@ -310,10 +480,13 @@
                 return;
             }
 
+            // Show loading state
+            showLoading();
+
             // Create survey data
             const surveyData = {
                 ticket_id: document.getElementById('ticketNumber').textContent,
-                name: 'Anonymous',
+                name: document.getElementById('name').textContent,
                 satisfaction_rate: satisfactionRating,
                 quality_rate: qualityRating,
                 feedback: feedbackTextarea.value,
@@ -324,23 +497,28 @@
                 formData.append(key, surveyData[key]);
             });
 
-
             // Generate unique survey ID
             const surveyId = 'SRV-' + Date.now().toString(36).toUpperCase();
 
-            fetch("https://script.google.com/macros/s/AKfycbyG6Lo3uw6d_gOPq3RHyNEuwgui9kU-A6vnjFHQ2cUqcmBSTpfQtjAL7DuY0t_kKRwoqw/exec", {
-                method: "POST",
-                body: formData
-            })
-                .then(response => {
-                    if (response.ok) {
-                        showSuccess(surveyId);
-                    } else {
-                        throw new Error('Network response was not ok');
-                    }
+            // Simulate network delay for demonstration (remove in production)
+            setTimeout(() => {
+                fetch("https://script.google.com/macros/s/AKfycbyG6Lo3uw6d_gOPq3RHyNEuwgui9kU-A6vnjFHQ2cUqcmBSTpfQtjAL7DuY0t_kKRwoqw/exec", {
+                    method: "POST",
+                    body: formData
                 })
-                .catch(error => alert("Gagal mengirim data"));
-
+                    .then(response => {
+                        hideLoading();
+                        if (response.ok) {
+                            showSuccess(surveyId);
+                        } else {
+                            throw new Error('Network response was not ok');
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        showNotification("Failed to submit data. Please try again.", 'error');
+                    });
+            }, 1500); // 1.5 second delay for demonstration
         });
 
         // Show success message
@@ -365,7 +543,8 @@
             document.getElementById('successMessage').classList.add('hidden');
 
             // Generate new ticket number
-            document.getElementById('ticketNumber').textContent = '2024-' + Math.floor(Math.random() * 9000 + 1000);
+            document.getElementById('ticketNumber').textContent = '-';
+            document.getElementById('name').textContent = 'anonymous';
         }
 
         // Show notification
