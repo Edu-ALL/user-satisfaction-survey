@@ -409,8 +409,8 @@
             if (value === 0) {
                 element.textContent = 'Not Rated';
             } else {
-                const labels = ['', 'Very Poor', 'Poor', 'Below Average', 'Below Average', 'Average',
-                    'Average', 'Good', 'Good', 'Excellent', 'Outstanding'];
+                const labels = ['', 'Very Poor', 'Poor', 'Average',
+                     'Good', 'Excellent'];
                 element.textContent = `${value}/5 - ${labels[value]}`;
             }
         }
